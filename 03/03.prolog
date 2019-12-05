@@ -16,69 +16,100 @@ string_direction(String, Direction) :-
   number_string(Len, LenStr),
   Direction = [AimChar, Len].
 
+
 main :-
   get_directions(A, B),
-  manhattan_closest_intersection(A, B, Distance),
-  print(Distance), nl.
-
-
-manhattan_closest_intersection(A, B, Distance) :-
-  points_on_path(A, Apoints),
-  print(Apoints), nl,
-  points_on_path(B, Bpoints),
-  print(Bpoints), nl,
+  points_on_path(A, Apoints, Asteps),
+  points_on_path(B, Bpoints, Bsteps),
   intersection(Apoints, Bpoints, Intersections),
-  print(Interserctions), nl,
-  maplist(intersection_distance, Intersections, Distances),
-  print(Distances), nl,
-  subtract(Distances, [0], NonzeroDistances),
-  listmin(NonzeroDistances, Distance).
+  subtract(Intersections, [[0,0]], RealIntersections),
+
+  %% manhattan
+  maplist(intersection_distance, RealIntersections, Distances),
+  listmin(Distances, Distance),
+  print(Distance), nl,
+
+  %% steps
+  intersections_steps(RealIntersections, Apoints, Asteps, Bpoints, Bsteps, [], Steps),
+  listmin(Steps, Steps),
+  print(Steps), nl.
 
 
 intersection_distance([X, Y], Distance) :-
   Distance is abs(X) + abs(Y).
 
 
-points_on_path(Directions, Points) :-
-  points_on_path(Directions, 0, 0, [], Points).
+intersections_steps([], _Asteps, _Apoints, _Bsteps, _Bpoints, StepsAcc, Steps) :-
+  Steps = StepsAcc.
 
-points_on_path([], _X, _Y, Acc, Points) :-
-  Points = Acc.
+intersections_steps([Intersection | Rest], Apoints, Asteps, Bpoints, Bsteps, StepsAcc, Steps) :-
+  nth0(Aindex, Apoints, Intersection),
+  nth0(Bindex, Bpoints, Intersection),
+  nth0(Aindex, Asteps, Astep),
+  nth0(Bindex, Bsteps, Bstep),
+  Step is Astep + Bstep,
+  print(Step), nl,
+  intersections_steps(Rest, Apoints, Asteps, Bpoints, Bsteps, [Step | StepsAcc], Steps).
 
-points_on_path([Direction | Rest], X, Y, Acc, Points) :-
-  points(Direction, X, Y, [], NewPoints, NewX, NewY),
-  append(Acc, NewPoints, NewAcc),
-  points_on_path(Rest, NewX, NewY, NewAcc, Points).
+
+points_on_path(Directions, Points, Steps) :-
+  points_on_path(Directions, 0, 0, 0, [], [], Points, Steps).
+
+points_on_path([], _X, _Y, _StepCount, PointsAcc, StepsAcc, Points, Steps) :-
+  reverse(StepsAcc, RevStepsAcc),
+  reverse(PointsAcc, RevPointsAcc),
+  Steps = RevStepsAcc,
+  Points = RevPointsAcc.
+
+points_on_path([Direction | Rest], X, Y, StepCount, PointsAcc, StepsAcc, Points, Steps) :-
+  points(Direction, X, Y, StepCount, [], [], NewPoints, NewSteps, NewX, NewY, NewStepCount),
+  append(NewPoints, PointsAcc, NewPointsAcc),
+  append(NewSteps, StepsAcc, NewStepsAcc),
+  points_on_path(Rest, NewX, NewY, NewStepCount, NewPointsAcc, NewStepsAcc, Points, Steps).
 
 
-points([_, 0], X, Y, Acc, NewPoints, NewX, NewY) :-
-  NewX = X,
-  NewY = Y,
-  NewPoints = Acc.
+points([_, 0], X, Y, StepCount, PointsAcc, StepsAcc, Points, Steps, EndingX, EndingY, EndingSteps) :-
+  Points = PointsAcc,
+  Steps = StepsAcc,
+  EndingX = X,
+  EndingY = Y,
+  EndingSteps = StepCount.
 
-points(['U', Len], X, Y, Acc, NewPoints, NewX, NewY) :-
+points(['U', Len], X, Y, StepCount, PointsAcc, StepsAcc, Points, Steps, EndingX, EndingY, EndingSteps) :-
   NewLen is Len - 1,
-  Yy is Y + 1,
-  NewAcc = [[X,Y] | Acc],
-  points(['U', NewLen], X, Yy, NewAcc, NewPoints, NewX, NewY).
+  NewY is Y + 1,
+  NewStepCount is StepCount + 1,
+  NewPointsAcc = [[X,Y] | PointsAcc],
+  NewStepsAcc = [StepCount | StepsAcc],
+  points(['U', NewLen], X, NewY, NewStepCount, NewPointsAcc, NewStepsAcc,
+    Points, Steps, EndingX, EndingY, EndingSteps).
 
-points(['D', Len], X, Y, Acc, NewPoints, NewX, NewY) :-
+points(['D', Len], X, Y, StepCount, PointsAcc, StepsAcc, Points, Steps, EndingX, EndingY, EndingSteps) :-
   NewLen is Len - 1,
-  Yy is Y - 1,
-  NewAcc = [[X,Y] | Acc],
-  points(['D', NewLen], X, Yy, NewAcc, NewPoints, NewX, NewY).
+  NewY is Y - 1,
+  NewStepCount is StepCount + 1,
+  NewPointsAcc = [[X,Y] | PointsAcc],
+  NewStepsAcc = [StepCount | StepsAcc],
+  points(['D', NewLen], X, NewY, NewStepCount, NewPointsAcc, NewStepsAcc,
+    Points, Steps, EndingX, EndingY, EndingSteps).
 
-points(['L', Len], X, Y, Acc, NewPoints, NewX, NewY) :-
+points(['R', Len], X, Y, StepCount, PointsAcc, StepsAcc, Points, Steps, EndingX, EndingY, EndingSteps) :-
   NewLen is Len - 1,
-  Xx is X - 1,
-  NewAcc = [[X,Y] | Acc],
-  points(['L', NewLen], Xx, Y, NewAcc, NewPoints, NewX, NewY).
+  NewX is X + 1,
+  NewStepCount is StepCount + 1,
+  NewPointsAcc = [[X,Y] | PointsAcc],
+  NewStepsAcc = [StepCount | StepsAcc],
+  points(['R', NewLen], NewX, Y, NewStepCount, NewPointsAcc, NewStepsAcc,
+    Points, Steps, EndingX, EndingY, EndingSteps).
 
-points(['R', Len], X, Y, Acc, NewPoints, NewX, NewY) :-
+points(['L', Len], X, Y, StepCount, PointsAcc, StepsAcc, Points, Steps, EndingX, EndingY, EndingSteps) :-
   NewLen is Len - 1,
-  Xx is X + 1,
-  NewAcc = [[X,Y] | Acc],
-  points(['R', NewLen], Xx, Y, NewAcc, NewPoints, NewX, NewY).
+  NewX is X - 1,
+  NewStepCount is StepCount + 1,
+  NewPointsAcc = [[X,Y] | PointsAcc],
+  NewStepsAcc = [StepCount | StepsAcc],
+  points(['L', NewLen], NewX, Y, NewStepCount, NewPointsAcc, NewStepsAcc,
+    Points, Steps, EndingX, EndingY, EndingSteps).
 
 
 listmin([First | Rest], Min) :-
