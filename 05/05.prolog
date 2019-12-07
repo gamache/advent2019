@@ -16,25 +16,19 @@ list_nth0_item_replaced(Es, N, X, Xs) :-
 
 main :-
   get_input_program(Program),
-  print_program(Program),
   part1(Program),
-  %part2(Program),
+  part2(Program),
   print(done), nl.
 
-print_program([]).
-
-print_program([Opcode | Rest]) :-
-  print(Opcode), nl,
-  print_program(Rest).
-
 part1(Program) :-
-  execute(Program, [1], 0, _EndP, EndV),
-  print(EndV), nl.
+  execute(Program, [1], 0, _EndP, _EndV).
+
+part2(Program) :-
+  execute(Program, [5], 0, _EndP, _EndV).
 
 execute(Program, Inputs, Position, EndProgram, EndValue) :-
   nth0(Position, Program, Opcode),
-  print([execute, Opcode, Position]), nl,
-  %print([execute, Opcode, Program, Position]), nl,
+  print([execute, Opcode]), nl,
   execute_opcode(Opcode, Program, Inputs, Position, EndProgram, EndValue).
 
 number_to_opcode(Number, Opcode) :-
@@ -66,7 +60,6 @@ apply_mode(Modes, ModeIndex, Position, Program, Value) :-
 execute_opcode([_, 1 | Modes], Program, Inputs, Position, EndProgram, EndValue) :-
   apply_mode(Modes, 1, Position, Program, [X | _]),
   apply_mode(Modes, 2, Position, Program, [Y | _]),
-  print([X,Y]),nl,
   Ipos is Position + 3,
   nth0(Ipos, Program, [Index | _]),
   NextPos is Position + 4,
@@ -104,6 +97,44 @@ execute_opcode([_, 4 | _Modes], Program, Inputs, Position, EndProgram, EndValue)
   print([output, Value]), nl,
   NextPos is Position + 2,
   execute(Program, Inputs, NextPos, EndProgram, EndValue).
+
+%% jump if true
+execute_opcode([_, 5 | Modes], Program, Inputs, Position, EndProgram, EndValue) :-
+  apply_mode(Modes, 1, Position, Program, [X | _]),
+  apply_mode(Modes, 2, Position, Program, [Y | _]),
+  (X = 0 -> NextPos is Position + 3 ; NextPos is Y),
+  execute(Program, Inputs, NextPos, EndProgram, EndValue).
+
+%% jump if false
+execute_opcode([_, 6 | Modes], Program, Inputs, Position, EndProgram, EndValue) :-
+  apply_mode(Modes, 1, Position, Program, [X | _]),
+  apply_mode(Modes, 2, Position, Program, [Y | _]),
+  (X = 0 -> NextPos is Y ; NextPos is Position + 3),
+  execute(Program, Inputs, NextPos, EndProgram, EndValue).
+
+%% less than
+execute_opcode([_, 7 | Modes], Program, Inputs, Position, EndProgram, EndValue) :-
+  apply_mode(Modes, 1, Position, Program, [X | _]),
+  apply_mode(Modes, 2, Position, Program, [Y | _]),
+  Ipos is Position + 3,
+  nth0(Ipos, Program, [Index | _]),
+  NextPos is Position + 4,
+  (X < Y -> Value is 1 ; Value is 0),
+  number_to_opcode(Value, Opcode),
+  list_nth0_item_replaced(Program, Index, Opcode, NextProgram),
+  execute(NextProgram, Inputs, NextPos, EndProgram, EndValue).
+
+%% equals
+execute_opcode([_, 8 | Modes], Program, Inputs, Position, EndProgram, EndValue) :-
+  apply_mode(Modes, 1, Position, Program, [X | _]),
+  apply_mode(Modes, 2, Position, Program, [Y | _]),
+  Ipos is Position + 3,
+  nth0(Ipos, Program, [Index | _]),
+  NextPos is Position + 4,
+  (X = Y -> Value is 1 ; Value is 0),
+  number_to_opcode(Value, Opcode),
+  list_nth0_item_replaced(Program, Index, Opcode, NextProgram),
+  execute(NextProgram, Inputs, NextPos, EndProgram, EndValue).
 
 %% halt
 execute_opcode([_, 99 | _Modes], Program, _Inputs, _Position, EndProgram, EndValue) :-
