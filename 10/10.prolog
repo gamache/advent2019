@@ -36,7 +36,28 @@ part2(Map, Part1, Part2) :-
   [_Count, [X, Y]] = Part1,
   all_rays(Map, X, Y, Rays),
   sort_rays(Rays, SortedRays),
-  maplist(print, SortedRays).
+  shoot_em_up(Map, X, Y, SortedRays, Roids),
+  nth1(200, Roids, [RoidX, RoidY]),
+  Part2 is RoidX * 100 + RoidY.
+
+shoot_em_up(Map, X, Y, Rays, Roids) :-
+  shoot_em_up(Map, X, Y, Rays, [], [], [], Roids).
+
+shoot_em_up(_Map, _X, _Y, _Rays, [], [], Roids, Roids).
+
+shoot_em_up(Map, X, Y, Rays, [], RoidsVapedLately, RoidsVaped, Roids) :-
+  reverse(RoidsVapedLately, ReverseRVL),
+  append(RoidsVaped, ReverseRVL, NewRoidsVaped),
+  shoot_em_up(Map, X, Y, Rays, Rays, [], NewRoidsVaped, Roids).
+
+shoot_em_up(Map, X, Y, Rays, [Ray | Rest], RoidsVapedLately, RoidsVaped, Roids) :-
+  ( asteroid_on_ray(Map, X, Y, Ray, Xast, Yast)
+    -> NewRVL = [[Xast, Yast] | RoidsVapedLately],
+       set_map_at(Map, Xast, Yast, '.', NewMap)
+    ; NewRVL = RoidsVapedLately,
+      NewMap = Map
+  ),
+  shoot_em_up(NewMap, X, Y, Rays, Rest, NewRVL, RoidsVaped, Roids).
 
 part1(Map, Part1) :-
   [Width, Height, _Grid] = Map,
@@ -101,10 +122,8 @@ ray_angle([X, Y], Radians) :- X > 0, Radians is atan(Y / X).
 ray_angle([X, Y], Radians) :- X < 0, Radians is pi + atan(Y / X).
 
 clockwise_angle([X, Y], ClockwiseRadians) :-
-  NegX is -X,
-  NegY is -Y,
-  ray_angle([NegX, NegY], Radians),
-  Angle is Radians - (pi / 2),
+  ray_angle([X, Y], Radians),
+  Angle is Radians - (3 * pi / 2),
   (Angle < 0 -> ClockwiseRadians is Angle + 2 * pi ; ClockwiseRadians is Angle).
 
 pairs([], [], []).
